@@ -6,11 +6,11 @@ import { apply as foldEvent, initialState, view, STATE_VERSION, MARKER_KIND, hid
 import { planDelete, planRegen, planRollback, planSwitch, PlanError } from './lib/plan.js'
 
 export const name = 'dsh-chat-plus'
-export const inject = ['sessionController', 'sessions', 'sessionProjections', 'connection', 'workspaceRegistry', 'storageDomain', 'sessionQuery', 'sessionPersistence']
+export const inject = ['sessionController', 'sessions', 'sessionProjections', 'connection', 'workspaceRegistry', 'storageDomain', 'sessionQuery', 'sessionPersistence', 'attachments']
 
 const PROJECTION_KEY = 'chatPlus'
 const OP_PATH = '/api/chatplus.op'
-const anySchema = { parse: value => value, safeParse: value => ({ success: value !== null && value !== undefined, data: value }) }
+const anySchema = { parse: value => value, safeParse: value => ({ success: true, data: value }) }
 const stateSchema = {
   parse: value => (value !== null && typeof value === 'object' && value.v === STATE_VERSION && typeof value.turns === 'object' ? value : initialState()),
 }
@@ -22,9 +22,9 @@ class OpError extends Error {
 const textOf = content => (Array.isArray(content) ? content : []).filter(b => b?.type === 'text').map(b => b.text).join('')
 const attachmentsOf = content => (Array.isArray(content) ? content : []).filter(b => b?.type === 'image' || b?.type === 'file')
 
-export function apply(ctx) {
+export async function apply(ctx) {
   // ---------- model-facing projection (wire view for the Client) ----------
-  const projection = ctx.sessionProjections.register({
+  const projection = await ctx.sessionProjections.register({
     key: PROJECTION_KEY,
     stateSchema,
     stateVersion: STATE_VERSION,
@@ -32,7 +32,7 @@ export function apply(ctx) {
     apply: (state, event) => foldEvent(state, event),
     wire: { viewSchema: anySchema, view: state => view(state), summary: false },
   })
-  Promise.resolve(projection).catch(error => ctx.logger?.warn?.(`dsh-chat-plus: projection registration failed: ${error}`))
+  ctx.effect(() => () => projection.dispose?.())
 
   // ---------- recycle bin storage ----------
   const binSpec = {
@@ -56,7 +56,8 @@ export function apply(ctx) {
   const serialized = (key, job) => {
     const previous = chains.get(key) ?? Promise.resolve()
     const next = previous.catch(() => {}).then(job)
-    chains.set(key, next.finally(() => { if (chains.get(key) === next) chains.delete(key) }))
+    const tracked = next.finally(() => { if (chains.get(key) === tracked) chains.delete(key) })
+    chains.set(key, tracked)
     return next
   }
 
@@ -155,7 +156,9 @@ export function apply(ctx) {
         const prompt = bySeq.get(plan.promptSeq)
         step(plan)
         const content = prompt?.data?.content ?? []
-        return { text: textOf(content), attachments: attachmentsOf(content) }
+        const attachments = attachmentsOf(content).map(block => ({ type: block.type, attachment: block.attachment }))
+          .filter(item => item.type === 'image' || (item.type === 'file' && item.attachment?.bytes <= 25 * 1024 * 1024))
+        return { text: textOf(content), attachments }
       })
     },
     async edit({ sessionId, turn, text, keep }) {
@@ -166,25 +169,45 @@ export function apply(ctx) {
         const plan = planRollback(state, surface(), Number(turn))
         const original = bySeq.get(plan.promptSeq)
         if (original?.type !== 'user/message') throw new OpError('no-prompt', 'the original prompt cannot be read')
-        const kept = attachmentsOf(original.data.content).filter((_, index) => Array.isArray(keep) && keep.includes(index))
+        const originalAttachments = attachmentsOf(original.data.content)
+        const kept = originalAttachments.filter((_, index) => Array.isArray(keep) && keep.includes(index))
+        const admitted = await ctx.attachments.admitPromptContent(kept)
         step(plan)
         const { rpcId, ...source } = original.data.source ?? { kind: 'user' }
-        message = { ...structuredClone(original.data), id: randomUUID(), source, content: [{ type: 'text', text }, ...structuredClone(kept)] }
+        message = { ...structuredClone(original.data), id: randomUUID(), source, content: [{ type: 'text', text }, ...admitted] }
       })
       agent.followup(message)
       return { sent: true }
     },
     async activity({ sessionId }) {
-      return { running: await isRunning(sessionId) }
+      const descendants = await descendantsOf(sessionId)
+      const running = await isRunning(sessionId) || (await Promise.all(descendants.map(isRunning))).some(Boolean)
+      return { running, descendants: descendants.length }
+    },
+    async attachment({ type, attachment }) {
+      return attachmentCopy({ type, attachment })
     },
     async trash({ sessionId, title, stop }) {
       const reg = ctx.workspaceRegistry
-      if (!stop && await isRunning(sessionId)) throw new OpError('running', 'this session is still running')
-      const descendants = await descendantsOf(sessionId)
-      await reg.archiveSession(sessionId, { stopActivity: true })
       const table = await bin()
+      const existing = table.get(sessionId)
+      if (existing !== undefined) return { trashed: true, alreadyTrashed: true }
+      const descendants = await descendantsOf(sessionId)
+      const isBusy = await isRunning(sessionId) || descendants.some(id => ctx.get('agents')?.get?.(id)?.status === 'running')
+      if (isBusy && stop !== true) throw new OpError('running', 'this session or one of its child sessions is still running')
+      if (stop === true && isBusy) {
+        try { await ctx.parallel('workspace/session-stop', { sessionId }) } catch { /* sessionController archive below also stops the root */ }
+      }
+      await reg.archiveSession(sessionId, { stopActivity: true })
+      for (const id of descendants) {
+        try { await reg.archiveSession(id, { stopActivity: true }) } catch { /* subagent registry may not expose an ordinary workspace row */ }
+        try { await ctx.parallel('workspace/session-stop', { sessionId: id }) } catch { /* no provider */ }
+      }
       await table.put(sessionId, { id: sessionId, title: String(title ?? '').slice(0, 200), trashedAt: Date.now(), descendants })
-      return { trashed: true }
+      return { trashed: true, descendants: descendants.length }
+    },
+    async childTrash({ sessionId, title, stop }) {
+      return ops.trash({ sessionId, title, stop })
     },
     async list() {
       const table = await bin()
@@ -199,13 +222,20 @@ export function apply(ctx) {
     },
     async restore({ sessionId }) {
       const table = await bin()
-      if (table.get(sessionId) === undefined) throw new OpError('not-in-bin', 'this session is not in the recycle bin', 404)
+      const record = table.get(sessionId)
+      if (record === undefined) throw new OpError('not-in-bin', 'this session is not in the recycle bin', 404)
+      for (const id of [...(record.descendants ?? [])].reverse()) {
+        try { await ctx.workspaceRegistry.unarchiveSession(id) } catch { /* missing child; leave parent recoverable */ }
+      }
       await ctx.workspaceRegistry.unarchiveSession(sessionId)
       await table.delete(sessionId)
       return { restored: true }
     },
     async purge({ sessionId }) {
       return { purged: await purge(sessionId) }
+    },
+    async inspect({ sessionId }) {
+      return { running: await isRunning(sessionId) }
     },
     async empty() {
       const table = await bin()
@@ -222,6 +252,23 @@ export function apply(ctx) {
     } catch { /* no providers */ }
     const agent = ctx.get('agents')?.get?.(sessionId)
     return agent?.status === 'running'
+  }
+  async function attachmentCopy(ref) {
+    if (ref?.type === 'image') {
+      const stored = await ctx.attachments.readImage(ref.attachment)
+      return { type: 'image', name: ref.attachment.name ?? 'image', mediaType: stored.ref.mediaType, data: Buffer.from(stored.data).toString('base64') }
+    }
+    if (ref?.type === 'file') {
+      const chunks = []
+      let size = 0
+      for await (const chunk of ctx.attachments.readFileStream(ref.attachment)) {
+        size += chunk.byteLength
+        if (size > 25 * 1024 * 1024) throw new OpError('attachment-too-large', 'file exceeds 25 MiB', 413)
+        chunks.push(Buffer.from(chunk))
+      }
+      return { type: 'file', name: ref.attachment.name ?? 'file', mediaType: 'application/octet-stream', data: Buffer.concat(chunks).toString('base64') }
+    }
+    throw new OpError('bad-request', 'unsupported attachment type', 400)
   }
 
   async function descendantsOf(sessionId) {

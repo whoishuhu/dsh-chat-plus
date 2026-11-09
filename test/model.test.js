@@ -20,7 +20,7 @@ function log() {
         push('tool/result', { turn, step: 1, message: { id: `t${turn}`, role: 'tool', content: [], source: { kind: 'tool' } } }, { surfaceOp: 'append' })
       }
       push('assistant/message', { turn, step: 2, message: { id: `a${turn}`, role: 'assistant', content: [{ type: 'text', text: `reply${turn}` }], source: { kind: 'model', model } }, stream: [] }, { surfaceOp: 'append' })
-      push('turn/end', { reason: { kind: 'completed' } })
+      push('turn/end', { turn, reason: { kind: 'completed' } })
       return { turn, prompt }
     },
     marker(source, seqs) {
