@@ -17,22 +17,16 @@ window.__ModuleLoader__.load({
     }
     const CSS = `
       .chatplus-actions{height:calc(28px + var(--dsh-content-font-delta,0px));display:flex;align-items:center;gap:8px}
-      .chatplus-assistant-extension{display:contents}
-      .chatplus-assistant-extension .chatplus-version-group{order:0}
-      .chatplus-assistant-extension .chatplus-action-controls{order:1}
-      [data-clock="end"]:has(.chatplus-assistant-extension)>span:last-child{display:contents}
-      [data-clock="end"]:has(.chatplus-assistant-extension)>span:last-child>*:first-child{order:10}
-      [data-clock="end"]:has(.chatplus-assistant-extension)>span:last-child>*:last-child{order:12}
-      .chatplus-assistant-extension .chatplus-meta-model{order:11;padding-inline:6px}
+      .chatplus-assistant-controls{display:inline-flex;align-items:center;gap:5px;padding-right:8px;border-right:1px solid var(--dsw-alias-border-l1)}
+      .chatplus-model-slot{font-size:12px;color:var(--dsw-alias-label-secondary);padding-inline:6px;white-space:nowrap}
+      [data-clock="end"] .chatplus-model-slot{order:11}
+      [data-clock="end"] .chatplus-model-slot+span{order:12}
       .chatplus-user-row{width:100%;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
       .chatplus-user-row [data-chatplus-content]{width:100%;display:flex;flex-direction:column;align-items:flex-end}
       .chatplus-user-row [data-chatplus-content]>*{align-self:flex-end}
       .chatplus-user-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;align-self:flex-end;max-width:100%;margin-top:0}
       .chatplus-action-controls{display:inline-flex;align-items:center;gap:5px;padding-right:8px;border-right:1px solid var(--dsw-alias-border-l1)}
       .chatplus-edit-banner{display:flex;align-items:center;gap:10px;padding:7px 12px;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-sm,6px);color:var(--dsw-alias-label-secondary)}
-      .chatplus-paste-capture{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-      .chatplus-version-group{display:inline-flex;align-items:center;gap:6px;padding:0 9px;border-right:1px solid var(--dsw-alias-border-l1);white-space:nowrap}
-      .chatplus-version-meta{font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap;padding-left:2px}
       .chatplus-btn{width:calc(28px + var(--dsh-content-font-delta,0px));height:calc(28px + var(--dsh-content-font-delta,0px));border:0;border-radius:var(--dsw-radius-sm,6px);background:transparent;color:var(--dsw-alias-label-tertiary);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:6px}
       .chatplus-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary)}
       .chatplus-btn:disabled{opacity:.45;cursor:default}
@@ -110,9 +104,93 @@ window.__ModuleLoader__.load({
     const selectFor = sessionId => { let s=selectStores.get(sessionId); if(!s){let value={active:false,items:[]};const ls=new Set();s={getSnapshot:()=>value,subscribe:f=>{ls.add(f);return()=>ls.delete(f)},set:v=>{value=v;ls.forEach(f=>f())},toggle:item=>{const key=`${item.scope}:${item.turn}`;const items=value.items.some(x=>`${x.scope}:${x.turn}`===key)?value.items.filter(x=>`${x.scope}:${x.turn}`!==key):[...value.items,item];s.set({...value,items})},clear:()=>s.set({active:false,items:[]}),activate:()=>s.set({...value,active:true})};selectStores.set(sessionId,s)} return s }
     function Confirm({request,onClose,onConfirm}) { if(!request)return null; return h(Modal,{title:request.title,description:request.description,onClose},h('div',{className:'chatplus-dialog-actions'},h('button',{onClick:onClose},request.error?'关闭':'取消'),!request.error&&h('button',{className:request.warning?'primary':'primary danger',onClick:request.onConfirm||onConfirm},request.confirm||'确认')))}
     function HiddenRows({sessionId,useProjection}) { const value=useProjection('chatPlus'); React.useEffect(()=>{const hidden=value?.hidden||{};let css=''; for(const [turn,scope] of Object.entries(hidden)){const root=`[data-conversation-session="${sessionId}"]`; const sel=`${root} [data-chat-turn="${turn}"]`; css+=scope==='reply'?`${sel}:not([data-chat-flow-kind="user"]):not([data-chat-flow-kind="steering"]){display:none!important;}`:`${sel}{display:none!important;}`; if(scope==='all'){const rail=Object.values(railFormat).map(format=>{const [nav,label]=format(turn);return `${root} nav[aria-label="${nav}"] button[aria-label="${label}"]`}).join(',');css+=`${rail}{display:none!important;}`}} const el=document.createElement('style');el.dataset.chatplusStyle=sessionId;el.textContent=css;document.head.appendChild(el);return()=>el.remove()},[sessionId,value]); return null }
-    function VersionActions({messageId,sessionId,useChat,useProjection,t}) { const value=useProjection('chatPlus'); const turn=useChat(s=>{for(const x of s.timeline?.turns?.values?.()||[]){const d=x.data?.get?.('turn-tail');if(d?.closing?.finalNode?.messageId===messageId)return x.turn??x.end?.turn} return null}); const group=value?.groups?.find(g=>g.turns.includes(turn)); const meta=value?.meta?.[String(turn)]; const active=group&&group.active===turn; const last=value?.last===turn; const [confirm,setConfirm]=React.useState(null); const [busy,setBusy]=React.useState(false); const run=async(body)=>{setBusy(true);try{await api(body)}catch(e){setConfirm({title:'操作失败',description:e.message,confirm:'关闭',error:true})}finally{setBusy(false)}}; React.useEffect(()=>{if(!active||!last||!group||group.turns.length<2)return;const f=e=>{if(['INPUT','TEXTAREA'].includes(e.target.tagName)||e.target.isContentEditable)return;const i=group.turns.indexOf(turn);if(e.key==='ArrowLeft'&&i>0)run({op:'switch',sessionId,group:group.id,to:group.turns[i-1]});if(e.key==='ArrowRight'&&i<group.turns.length-1)run({op:'switch',sessionId,group:group.id,to:group.turns[i+1]})};document.addEventListener('keydown',f);return()=>document.removeEventListener('keydown',f)},[active,last,group,turn,sessionId]); const selection=React.useSyncExternalStore(selectFor(sessionId).subscribe,selectFor(sessionId).getSnapshot); if(!turn||value?.running)return null; const idx=group?group.turns.indexOf(turn):-1; return h(React.Fragment,null,h('div',{className:'chatplus-actions'},h('div',{className:'chatplus-version-group'},h('input',{type:'checkbox',className:'chatplus-select',title:'选择此回复',checked:selection.items.some(x=>x.turn===turn&&x.scope==='reply'),onChange:()=>selectFor(sessionId).toggle({turn,scope:'reply'})}),group&&active&&last&&h('span',{className:'chatplus-switch'},h('button',{onClick:()=>idx>0&&run({op:'switch',sessionId,group:group.id,to:group.turns[idx-1]}),disabled:busy||idx<=0},svg('left')),`${idx+1}/${group.turns.length}`,h('button',{onClick:()=>idx<group.turns.length-1&&run({op:'switch',sessionId,group:group.id,to:group.turns[idx+1]}),disabled:busy||idx>=group.turns.length-1},svg('right'))),h('span',{className:'chatplus-version-meta'},meta?.model||''),h('span',{className:'chatplus-badge'},nowClock(meta?.time))),h('span',{className:'chatplus-action-controls'},h('button',{className:'chatplus-btn',title:'重新生成',onClick:()=>{const execute=()=>run({op:'regen',sessionId,turn});if(meta?.tools)setConfirm({title:'工具可能再次执行',description:'此回复调用过工具，重新生成可能再次执行工具；之前的文件改动和外部副作用不会自动撤销。',confirm:'继续重新生成',warning:true,onConfirm:()=>{setConfirm(null);execute()}});else execute()},disabled:busy||!last},svg('refresh')),h('button',{className:'chatplus-btn chatplus-danger',title:'删除回复',onClick:()=>setConfirm({title:'删除回复',description:'将删除这条回复、思考和工具调用，问题保留。',confirm:'删除'}),disabled:busy},svg('trash')))),confirm&&h(Confirm,{request:confirm,onClose:()=>setConfirm(null),onConfirm:()=>{setConfirm(null);run({op:'delete',sessionId,items:[{turn,scope:'reply'}]})}})) }
-    function UserNode({node,renderFactorySlot,loadImage,sessionId,t,useProjection,inputActions}) { const data=node.data; const turn=turnOf(node); const value=useProjection('chatPlus'); const selection=React.useSyncExternalStore(selectFor(sessionId).subscribe,selectFor(sessionId).getSnapshot); const [confirm,setConfirm]=React.useState(null); const [edit,setEdit]=React.useState(false); const [text,setText]=React.useState(contentParts(data.content).text); const [busy,setBusy]=React.useState(false); const parts=contentParts(data.content); const ask=async(body)=>{setBusy(true);try{return await api(body)}catch(e){setConfirm({title:'操作失败',description:e.message,confirm:'关闭'});return null}finally{setBusy(false)}}; const startEdit=async()=>{try{const refs=parts.attachments.map(b=>({type:b.type,attachment:b.attachment}));const ids=await restoreDraft({text:parts.text,attachments:refs},inputActions,sessionId,runtimeCtx);editFor(sessionId).set({turn,original:refs,ids})}catch(e){setConfirm({title:'编辑失败',description:e.message,confirm:'关闭',error:true})}}; const actions=h('div',{className:'chatplus-user-actions'},turn&&h('input',{type:'checkbox',className:'chatplus-select',title:'选择整轮',checked:selection.items.some(x=>x.turn===turn&&x.scope==='turn'),onChange:()=>selectFor(sessionId).toggle({turn,scope:'turn'})}),h('span',{className:'chatplus-action-controls'},h(Button,{kind:'copy',label:'复制',onClick:()=>navigator.clipboard?.writeText(parts.text)}),turn&&h(Button,{kind:'edit',label:'编辑问题',disabled:busy,onClick:startEdit}),turn&&h(Button,{kind:'back',label:'回退',disabled:busy,onClick:()=>setConfirm({title:'回退会话',description:'会话会回退到当前节点，后续轮次全部删除，是否继续？',confirm:'继续回退'})}),turn&&h(Button,{kind:'trash',label:'删除问题和回复',danger:true,disabled:busy,onClick:()=>setConfirm({title:'删除整轮',description:'将删除这个问题及其全部回复版本、思考和工具调用。',confirm:'删除'})}))); const prepared={text:parts.text,attachments:parts.attachments.map(b=>b.type==='image'?{type:'image',image:{attachment:b.attachment}}:{type:'file',file:b.attachment}),extraBlocks:parts.rest}; return h(React.Fragment,null,h('div',{className:'chatplus-user-row'},h('div',{'data-chatplus-content':true},renderFactorySlot('conversation.chat.user.content',{content:prepared,loadImage,interactive:true})),actions),confirm&&h(Confirm,{request:confirm,onClose:()=>setConfirm(null),onConfirm:async()=>{const op=confirm.title==='回退会话'?'rollback':'delete';setConfirm(null);const result=await ask(op==='rollback'?{op,sessionId,turn}:{op,sessionId,items:[{turn,scope:'turn'}]});if(op==='rollback'&&result)restoreDraft(result,inputActions,sessionId,runtimeCtx).catch(e=>setConfirm({title:'附件恢复失败',description:e.message,confirm:'关闭'}))}})) }
-    function SessionDeleteOverlay({useDeleteRequest}) {
+    function VersionActions({messageId,sessionId,useChat,useProjection,t}) { const value=useProjection('chatPlus'); const turn=useChat(s=>{for(const x of s.timeline?.turns?.values?.()||[]){const d=x.data?.get?.('turn-tail');if(d?.closing?.finalNode?.messageId===messageId)return x.turn??x.end?.turn} return null}); const group=value?.groups?.find(g=>g.turns.includes(turn)); const meta=value?.meta?.[String(turn)]; const active=group&&group.active===turn; const last=value?.last===turn; const [confirm,setConfirm]=React.useState(null); const [busy,setBusy]=React.useState(false); const run=async(body)=>{setBusy(true);try{await api(body)}catch(e){setConfirm({title:'操作失败',description:e.message,confirm:'关闭',error:true})}finally{setBusy(false)}}; React.useEffect(()=>{if(!active||!last||!group||group.turns.length<2)return;const f=e=>{if(['INPUT','TEXTAREA'].includes(e.target.tagName)||e.target.isContentEditable)return;const i=group.turns.indexOf(turn);if(e.key==='ArrowLeft'&&i>0)run({op:'switch',sessionId,group:group.id,to:group.turns[i-1]});if(e.key==='ArrowRight'&&i<group.turns.length-1)run({op:'switch',sessionId,group:group.id,to:group.turns[i+1]})};document.addEventListener('keydown',f);return()=>document.removeEventListener('keydown',f)},[active,last,group,turn,sessionId]); const selection=React.useSyncExternalStore(selectFor(sessionId).subscribe,selectFor(sessionId).getSnapshot); if(!turn||value?.running)return null; const idx=group?group.turns.indexOf(turn):-1; const frame=document.querySelector(`[data-conversation-session="${sessionId}"]`);const row=[...(frame?.querySelectorAll('[data-chat-turn]')||[])].find(el=>Number(el.getAttribute('data-chat-turn'))===turn&&el.querySelector('[data-clock="end"]'));const endInfo=row?.querySelector('[data-clock="end"]>span:last-child');const metaNode=endInfo&&meta?.model?ReactDOM.createPortal(h('span',{className:'chatplus-model-slot'},meta.model),endInfo,`chatplus-model-${turn}`):null; return h(React.Fragment,null,h('div',{className:'chatplus-actions'},h('div',{className:'chatplus-version-group'},h('input',{type:'checkbox',className:'chatplus-select',title:'选择此回复',checked:selection.items.some(x=>x.turn===turn&&x.scope==='reply'),onChange:()=>selectFor(sessionId).toggle({turn,scope:'reply'})}),group&&active&&last&&h('span',{className:'chatplus-switch'},h('button',{onClick:()=>idx>0&&run({op:'switch',sessionId,group:group.id,to:group.turns[idx-1]}),disabled:busy||idx<=0},svg('left')),`${idx+1}/${group.turns.length}`,h('button',{onClick:()=>idx<group.turns.length-1&&run({op:'switch',sessionId,group:group.id,to:group.turns[idx+1]}),disabled:busy||idx>=group.turns.length-1},svg('right')))),h('span',{className:'chatplus-assistant-controls'},h('button',{className:'chatplus-btn',title:'重新生成',onClick:()=>{const execute=()=>run({op:'regen',sessionId,turn});if(meta?.tools)setConfirm({title:'工具可能再次执行',description:'此回复调用过工具，重新生成可能再次执行工具；之前的文件改动和外部副作用不会自动撤销。',confirm:'继续重新生成',warning:true,onConfirm:()=>{setConfirm(null);execute()}});else execute()},disabled:busy||!last},svg('refresh')),h('button',{className:'chatplus-btn',title:'删除回复',onClick:()=>setConfirm({title:'删除回复',description:'将删除这条回复、思考和工具调用，问题保留。',confirm:'删除'}),disabled:busy},svg('trash')))),metaNode&&ReactDOM.createPortal(metaNode,endInfo),confirm&&h(Confirm,{request:confirm,onClose:()=>setConfirm(null),onConfirm:()=>{setConfirm(null);run({op:'delete',sessionId,items:[{turn,scope:'reply'}]})}})) }
+    function UserNode({ node, renderFactorySlot, loadImage, sessionId, useProjection, inputActions }) {
+      const data = node.data;
+      const turn = turnOf(node);
+      const projection = useProjection('chatPlus');
+      const selection = React.useSyncExternalStore(selectFor(sessionId).subscribe, selectFor(sessionId).getSnapshot);
+      const [confirm, setConfirm] = React.useState(null);
+      const [editing, setEditing] = React.useState(false);
+      const [text, setText] = React.useState('');
+      const [busy, setBusy] = React.useState(false);
+      const parts = contentParts(data.content);
+
+      const run = async operation => {
+        setBusy(true);
+        try { return await api(operation); }
+        catch (error) {
+          setConfirm({ title: '操作失败', description: error.message, error: true, confirm: '关闭' });
+          return null;
+        } finally { setBusy(false); }
+      };
+      const startEdit = async () => {
+        try {
+          const original = parts.attachments.map(block => ({ type: block.type, attachment: block.attachment }));
+          const ids = await restoreDraft({ text: parts.text, attachments: original }, inputActions, sessionId, runtimeCtx);
+          editFor(sessionId).set({ turn, original, ids });
+          setText(parts.text);
+          setEditing(true);
+        } catch (error) {
+          setConfirm({ title: '编辑失败', description: error.message, error: true, confirm: '关闭' });
+        }
+      };
+      const saveEdit = async () => {
+        if (!text.trim()) return;
+        const selected = [...document.querySelectorAll('[data-chatplus-inline-keep]:checked')];
+        const keep = selected.map(element => Number(element.dataset.chatplusInlineKeep));
+        const later = projection?.last !== turn;
+        const submit = async () => {
+          const result = await run({ op: 'edit', sessionId, turn, text, keep });
+          if (result) {
+            editing && setEditing(false);
+            editFor(sessionId).set(null);
+            inputActions?.setDraft?.('');
+          }
+        };
+        if (later) {
+          setConfirm({ title: '编辑历史问题', description: '编辑此轮会删除此轮之后的所有轮次，是否继续？', confirm: '确认并重生成', warning: true, onConfirm: () => { setConfirm(null); submit(); } });
+        } else submit();
+      };
+      const actions = h('div', { className: 'chatplus-user-actions' },
+        turn && h('input', {
+          type: 'checkbox', className: 'chatplus-select', title: '选择整轮',
+          checked: selection.items.some(item => item.turn === turn && item.scope === 'turn'),
+          onChange: () => selectFor(sessionId).toggle({ turn, scope: 'turn' })
+        }),
+        h('span', { className: 'chatplus-action-controls' },
+          h(Button, { kind: 'copy', label: '复制', onClick: () => navigator.clipboard?.writeText(parts.text) }),
+          turn && h(Button, { kind: 'edit', label: '编辑问题', disabled: busy, onClick: () => editing ? saveEdit() : startEdit() }),
+          turn && h(Button, { kind: 'back', label: '回退', disabled: busy, onClick: () => setConfirm({ title: '回退会话', description: '会话会回退到当前节点，后续轮次全部删除，是否继续？', confirm: '继续回退', onConfirm: async () => {
+            setConfirm(null);
+            const result = await run({ op: 'rollback', sessionId, turn });
+            if (result) restoreDraft(result, inputActions, sessionId, runtimeCtx).catch(error => setConfirm({ title: '附件恢复失败', description: error.message, error: true, confirm: '关闭' }));
+          } })}),
+          turn && h(Button, { kind: 'trash', label: '删除问题和回复', disabled: busy, onClick: () => setConfirm({ title: '删除整轮', description: '将删除这个问题及其全部回复版本、思考和工具调用。', confirm: '删除', onConfirm: () => { setConfirm(null); run({ op: 'delete', sessionId, items: [{ turn, scope: 'turn' }] }); } }) })
+        )
+      );
+      const prepared = {
+        text: parts.text,
+        attachments: parts.attachments.map(block => block.type === 'image' ? { type: 'image', image: { attachment: block.attachment } } : { type: 'file', file: block.attachment }),
+        extraBlocks: parts.rest
+      };
+      return h(React.Fragment, null,
+        h('div', { className: 'chatplus-user-row' },
+          editing && h('div', { className: 'chatplus-inline-edit' },
+            h('textarea', { value: text, onChange: event => setText(event.target.value), 'aria-label': '编辑历史问题' }),
+            h('div', { className: 'chatplus-inline-attachments' }, ...parts.attachments.map((block, index) => h('label', { key: index },
+              h('input', { type: 'checkbox', defaultChecked: true, 'data-chatplus-inline-keep': index }),
+              block.type === 'image' ? '保留历史图片' : '保留历史文件'
+            ))),
+            h('div', { className: 'chatplus-edit-hint' }, '图片/文件粘贴请在官方输入框中进行。'),
+            actions
+          ),
+          h('div', { 'data-chatplus-content': true }, renderFactorySlot('conversation.chat.user.content', { content: prepared, loadImage, interactive: true })),
+          !editing && actions
+        ),
+        confirm && h(Confirm, { request: confirm, onClose: () => setConfirm(null), onConfirm: confirm.onConfirm || (() => setConfirm(null)) })
+      );
+    }    function SessionDeleteOverlay({useDeleteRequest}) {
       const request = useDeleteRequest()
       const [busy, setBusy] = React.useState(false)
       const [error, setError] = React.useState(null)
@@ -135,16 +213,14 @@ window.__ModuleLoader__.load({
       const sel=React.useSyncExternalStore(selectFor(sessionId).subscribe,selectFor(sessionId).getSnapshot)
       const edit=React.useSyncExternalStore(editFor(sessionId).subscribe,editFor(sessionId).getSnapshot)
       const [confirm,setConfirm]=React.useState(null)
-      React.useEffect(()=>{if(edit){editBaseIds.current=[...(inputState.attachmentIds||[])];setExtraIds([])}},[edit?.turn])
       const [extraIds,setExtraIds]=React.useState([])
       const editBaseIds=React.useRef([])
-      const [pasteBusy,setPasteBusy]=React.useState(false)
+      React.useEffect(()=>{if(edit){editBaseIds.current=[...(inputState.attachmentIds||[])];setExtraIds([])}else{editBaseIds.current=[];setExtraIds([])}},[edit?.turn])
       if(!sel.active&&sel.items.length===0&&!edit)return null
       const s=selectFor(sessionId)
       const sendEdit=async()=>{const text=draft||'';if(!text.trim()||!edit)return;try{const original=edit.original||[];const liveExtras=extraIds.filter(id=>inputState.attachmentIds?.includes?.(id)&&!editBaseIds.current.includes(id));const keep=[...original.map((_,i)=>i),...liveExtras.map((_,i)=>original.length+i)];await api({op:'edit',sessionId,turn:edit.turn,text,keep});editFor(sessionId).set(null);setExtraIds([])}catch(e){setConfirm({title:'编辑失败',description:e.message,confirm:'关闭',error:true})}}
       const finish=()=>{if(projection?.last!==edit?.turn){setConfirm({title:'编辑历史问题',description:'编辑此轮会删除此轮之后的所有轮次，是否继续？',confirm:'确认并重生成',warning:true,onConfirm:()=>{setConfirm(null);sendEdit()}})}else sendEdit()}
-      const pasteFiles=async e=>{const files=[...(e.clipboardData?.files||[])];if(!files.length)return;e.preventDefault();const scope=runtimeCtx?.sessions?.scope?.(sessionId);const conversation=scope?.get?.('conversation');if(!conversation?.createDrafts){setConfirm({title:'无法粘贴附件',description:'当前 DSH 输入框附件服务不可用；问题文字仍可编辑。',confirm:'关闭',error:true});return}setPasteBusy(true);try{const drafts=conversation.createDrafts(sessionId,files,true);const accepted=inputActions?.addAttachments?.(drafts.map(d=>d.id));if(accepted===false){conversation.releaseDraftAttachments?.(drafts);throw new Error('当前输入框正在提交，附件未能加入草稿。')}setExtraIds(ids=>[...new Set([...ids,...drafts.map(d=>d.id)])])}catch(error){setConfirm({title:'附件粘贴失败',description:error.message||String(error),confirm:'关闭',error:true})}finally{setPasteBusy(false)}}
-      return h('div',{className:'chatplus-dock'},edit&&h(React.Fragment,null,h('span',{className:'chatplus-edit-banner'},`正在编辑第 ${edit.turn} 轮（可粘贴图片或文件）`),h('button',{className:'primary',onClick:finish},'提交编辑'),h('button',{onClick:()=>{for(const id of extraIds)inputActions?.removeAttachment?.(id);setExtraIds([]);editFor(sessionId).set(null);inputActions?.setDraft?.('')}},'取消编辑'),h('span',{className:'chatplus-paste-capture',onPasteCapture:pasteFiles,tabIndex:0,'aria-label':'粘贴图片和文件'})),!edit&&h(React.Fragment,null,h('button',{onClick:()=>s.activate()},'多选'),h('span',null,`已选择 ${sel.items.length} 条`),h('button',{className:'chatplus-danger',disabled:sel.items.length===0,onClick:()=>{if(window.confirm('删除选中的消息？'))api({op:'delete',sessionId,items:sel.items}).then(()=>s.clear())}},'批量删除'),h('button',{onClick:()=>s.clear()},'取消')),confirm&&h(Confirm,{request:confirm,onClose:()=>setConfirm(null),onConfirm:confirm.onConfirm||(()=>setConfirm(null))})) }
+      return h('div',{className:'chatplus-dock'},edit&&h(React.Fragment,null,h('span',{className:'chatplus-edit-banner'},`正在编辑第 ${edit.turn} 轮（可粘贴图片或文件）`),h('button',{className:'primary',onClick:finish},'提交编辑'),h('button',{onClick:()=>{for(const id of extraIds)inputActions?.removeAttachment?.(id);setExtraIds([]);editFor(sessionId).set(null);inputActions?.setDraft?.('')}},'取消编辑'),h('span',{className:'chatplus-edit-hint'},'请在上方输入框中直接粘贴图片或文件')),!edit&&h(React.Fragment,null,h('button',{onClick:()=>s.activate()},'多选'),h('span',null,`已选择 ${sel.items.length} 条`),h('button',{className:'chatplus-danger',disabled:sel.items.length===0,onClick:()=>{if(window.confirm('删除选中的消息？'))api({op:'delete',sessionId,items:sel.items}).then(()=>s.clear())}},'批量删除'),h('button',{onClick:()=>s.clear()},'取消')),confirm&&h(Confirm,{request:confirm,onClose:()=>setConfirm(null),onConfirm:confirm.onConfirm||(()=>setConfirm(null))})) }
     function Footer({wide}) {
       const [open, setOpen] = React.useState(false)
       const [items, setItems] = React.useState([])
