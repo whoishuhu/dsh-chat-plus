@@ -161,7 +161,7 @@ export async function apply(ctx) {
         return { text: textOf(content), attachments }
       })
     },
-    async edit({ sessionId, turn, text, keep }) {
+    async edit({ sessionId, turn, text, keep, pasted }) {
       if (typeof text !== 'string' || text.trim() === '') throw new OpError('bad-request', 'the edited question is empty', 400)
       const agent = await liveAgent(sessionId)
       let message
@@ -172,9 +172,17 @@ export async function apply(ctx) {
         const originalAttachments = attachmentsOf(original.data.content)
         const kept = originalAttachments.filter((_, index) => Array.isArray(keep) && keep.includes(index))
         const admitted = await ctx.attachments.admitPromptContent(kept)
+        const pastedParts = []
+        for (const file of Array.isArray(pasted) ? pasted : []) {
+          if (typeof file?.data !== 'string' || file.data.length > 24 * 1024 * 1024) throw new OpError('attachment-too-large', 'pasted attachment exceeds 18 MiB', 413)
+          const bytes = Buffer.from(file.data, 'base64')
+          if (bytes.byteLength > 18 * 1024 * 1024) throw new OpError('attachment-too-large', 'pasted attachment exceeds 18 MiB', 413)
+          if (file.type === 'image') pastedParts.push({ type: 'image', attachment: await ctx.attachments.saveImage({ data: bytes, mediaType: file.mediaType, name: file.name }) })
+          else pastedParts.push({ type: 'file', attachment: await ctx.attachments.saveFile({ data: bytes, name: file.name }) })
+        }
         step(plan)
         const { rpcId, ...source } = original.data.source ?? { kind: 'user' }
-        message = { ...structuredClone(original.data), id: randomUUID(), source, content: [{ type: 'text', text }, ...admitted] }
+        message = { ...structuredClone(original.data), id: randomUUID(), source, content: [{ type: 'text', text }, ...admitted, ...pastedParts] }
       })
       agent.followup(message)
       return { sent: true }
