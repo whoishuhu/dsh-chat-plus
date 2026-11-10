@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f8fa">
+  <meta name="description" content="WorkBuddy-style in-session reply versions for DeepSeek Harness, with message editing, rollback, soft deletion, and a session recycle bin.">
+  <title>dsh-chat-plus | Chat plus for DeepSeek Harness</title>
+  <style>
+    :root{color-scheme:light;--ink:#17232f;--muted:#586879;--line:#d6dee7;--paper:#f6f8fa;--card:#fff;--teal:#087e8b;--coral:#c4563c;--lime:#d8ef75}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.55}
+    a{color:inherit}header{max-width:1160px;margin:auto;padding:24px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+    .brand{display:flex;align-items:center;gap:12px;font-weight:750;font-size:18px}.brand img{width:38px;height:38px}.nav{display:flex;gap:20px;font-size:14px;color:var(--muted)}
+    main{max-width:1160px;margin:auto;padding:60px 28px 72px}.hero{display:grid;grid-template-columns:1.04fr .96fr;gap:52px;align-items:center;padding-bottom:58px}
+    .eyebrow{color:var(--teal);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.08em}h1{font-size:clamp(42px,5vw,68px);line-height:1.04;letter-spacing:-.04em;margin:14px 0 20px;max-width:680px} .lead{font-size:19px;color:var(--muted);max-width:630px}
+    .actions{display:flex;gap:12px;margin:28px 0 22px;flex-wrap:wrap}.btn{display:inline-flex;text-decoration:none;padding:11px 17px;border-radius:7px;font-weight:700;font-size:14px;border:1px solid var(--ink)}.btn.primary{background:var(--ink);color:#fff}.btn.secondary{background:var(--card)}
+    .micro{font-size:13px;color:var(--muted)}.preview{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;box-shadow:0 18px 48px #23384b12}
+    .window{border:1px solid var(--line);border-radius:8px;overflow:hidden}.windowbar{background:#edf2f5;padding:11px 14px;display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+    .chat{padding:20px;display:grid;gap:13px}.bubble{padding:12px 14px;border-radius:8px;max-width:90%;font-size:14px}.user{justify-self:end;background:#e4f2f2}.assistant{background:#f0f2f5}.row{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:12px}.version{font-weight:750;color:var(--teal);border:1px solid #acd1d2;padding:3px 8px;border-radius:5px;background:#f1fbfa}.model{margin-left:auto;color:#586879}.rule{height:1px;background:var(--line);margin:20px 0}
+    .features{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.feature{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:20px;min-height:155px}.feature h2{font-size:16px;margin:0 0 8px}.feature p{font-size:14px;color:var(--muted);margin:0}.feature .mark{color:var(--coral);font-weight:800;font-size:12px;margin-bottom:12px}
+    .callout{margin-top:44px;padding:24px 28px;background:#e7f1dd;border-left:4px solid var(--teal);border-radius:6px;display:flex;gap:20px;justify-content:space-between;align-items:center}.callout h2{font-size:20px;margin:0}.callout p{margin:4px 0 0;color:var(--muted);font-size:14px}
+    footer{border-top:1px solid var(--line);padding:24px 28px;color:var(--muted);font-size:13px}footer>div{max-width:1160px;margin:auto;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+    @media(max-width:780px){header{padding:18px;align-items:flex-start}.nav{gap:10px;flex-wrap:wrap;justify-content:flex-end}.nav a:nth-child(2){display:none}main{padding:36px 18px}.hero{grid-template-columns:1fr;gap:28px;padding-bottom:38px}h1{font-size:44px}.lead{font-size:17px}.features{grid-template-columns:1fr}.callout{align-items:flex-start;flex-direction:column}}
+  </style>
+</head>
+<body>
+  <header>
+    <a class="brand" href="./"><img src="icon.svg" alt=""><span>dsh-chat-plus</span></a>
+    <nav class="nav" aria-label="Language and project links"><a href="README.zh.md">简体中文</a><a href="README.md">English</a><a href="ARCHITECTURE.md">Architecture</a><a href="https://github.com/whoishuhu/dsh-chat-plus/releases/latest">Releases</a></nav>
+  </header>
+  <main>
+    <section class="hero">
+      <div>
+        <div class="eyebrow">DeepSeek Harness · Chat plus</div>
+        <h1>Choose the reply.<br>Keep the conversation.</h1>
+        <p class="lead">Regenerate a response in the same session, switch between versions, and continue from the answer you prefer. No forked sessions in the sidebar.</p>
+        <div class="actions"><a class="btn primary" href="https://github.com/whoishuhu/dsh-chat-plus/releases/latest">Get the plugin</a><a class="btn secondary" href="README.zh.md">中文介绍</a></div>
+        <p class="micro">Also includes in-place question editing, rollback, soft deletion, and a session recycle bin.</p>
+      </div>
+      <div class="preview" aria-label="Reply version switching preview">
+        <div class="window"><div class="windowbar"><span>Conversation</span><span>DeepSeek Harness</span></div><div class="chat">
+          <div class="bubble user">Can you compare these two approaches and recommend one for this codebase?</div>
+          <div class="bubble assistant">Approach B fits the existing event model better. It keeps the active context compact while preserving the alternative answer for later comparison.</div>
+          <div class="row"><span>↻</span><span>□</span><span class="version">‹　2 / 3　›</span><span class="model">Model: current selection</span><span>14:32</span></div>
+        </div></div>
+        <div class="rule"></div><div class="micro">One session · three answer versions · one active context</div>
+      </div>
+    </section>
+    <section class="features" aria-label="Features">
+      <article class="feature"><div class="mark">01 / REGENERATE</div><h2>Try another answer</h2><p>Regenerate the latest turn without creating another session. Tool use is called out before a rerun.</p></article>
+      <article class="feature"><div class="mark">02 / SWITCH</div><h2>Compare versions in place</h2><p>Use the version switcher or arrow keys. Follow-up turns use the selected answer as context.</p></article>
+      <article class="feature"><div class="mark">03 / EDIT</div><h2>Edit the original question</h2><p>Change a historical prompt in its message row. Later turns are removed only after confirmation.</p></article>
+      <article class="feature"><div class="mark">04 / ROLLBACK</div><h2>Return to a turn</h2><p>Roll back later context and restore the original prompt to the official composer.</p></article>
+      <article class="feature"><div class="mark">05 / DELETE</div><h2>Clean up messages</h2><p>Soft-delete a reply or a whole question/reply turn. Select multiple items for batch deletion.</p></article>
+      <article class="feature"><div class="mark">06 / RECYCLE BIN</div><h2>Recover sessions</h2><p>Move sessions to a recycle bin, restore them, or permanently delete one or empty the bin.</p></article>
+    </section>
+    <section class="callout"><div><h2>Built for DSH's append-only sessions</h2><p>Message soft deletion preserves the raw log. Permanent session deletion is explicit and irreversible.</p></div><a class="btn secondary" href="ARCHITECTURE.md">Read the architecture</a></section>
+  </main>
+  <footer><div><span>Community plugin · MIT · Not affiliated with DeepSeek</span><span><a href="https://github.com/whoishuhu/dsh-chat-plus">GitHub</a> · <a href="README.zh.md">中文</a> · <a href="README.md">English</a></span></div></footer>
+</body>
+</html>

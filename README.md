@@ -2,7 +2,7 @@
 
 **Languages:** English · [简体中文](README.zh.md) · [日本語](README.ja.md) · [Español](README.es.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Русский](README.ru.md) · [Português](README.pt.md)
 
-**Project:** [Architecture](ARCHITECTURE.md) · [Latest release](https://github.com/whoishuhu/dsh-chat-plus/releases/latest)
+**Project:** [Project page](https://whoishuhu.github.io/dsh-chat-plus/) · [Architecture](ARCHITECTURE.md) · [Latest release](https://github.com/whoishuhu/dsh-chat-plus/releases/latest)
 
 ![dsh-chat-plus icon](icon.svg)
 

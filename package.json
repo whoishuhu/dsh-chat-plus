@@ -10,7 +10,7 @@
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
-  "files": ["index.js", "client.js", "lib", "test", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "README.zh.md", "README.ja.md", "README.es.md", "README.fr.md", "README.de.md", "README.ru.md", "README.pt.md", "ARCHITECTURE.md"],
+  "files": ["index.js", "client.js", "lib", "test", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "README.zh.md", "README.ja.md", "README.es.md", "README.fr.md", "README.de.md", "README.ru.md", "README.pt.md", "ARCHITECTURE.md", "index.html", ".github/workflows/pages.yml"],
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
     "client": {

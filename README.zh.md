@@ -2,7 +2,7 @@
 
 **语言：** 简体中文 · [English](README.md) · [日本語](README.ja.md) · [Español](README.es.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Русский](README.ru.md) · [Português](README.pt.md)
 
-**项目入口：** [功能架构](ARCHITECTURE.md) · [发布页](https://github.com/whoishuhu/dsh-chat-plus/releases/latest)
+**项目入口：** [项目宣传页](https://whoishuhu.github.io/dsh-chat-plus/) · [功能架构](ARCHITECTURE.md) · [发布页](https://github.com/whoishuhu/dsh-chat-plus/releases/latest)
 
 ![dsh-chat-plus icon](icon.svg)
 
