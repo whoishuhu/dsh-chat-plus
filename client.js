@@ -17,6 +17,13 @@ window.__ModuleLoader__.load({
     }
     const CSS = `
       .chatplus-actions{height:calc(28px + var(--dsh-content-font-delta,0px));display:flex;align-items:center;gap:8px}
+      .chatplus-assistant-extension{display:contents}
+      .chatplus-assistant-extension .chatplus-version-group{order:0}
+      .chatplus-assistant-extension .chatplus-action-controls{order:1}
+      [data-clock="end"]:has(.chatplus-assistant-extension)>span:last-child{display:contents}
+      [data-clock="end"]:has(.chatplus-assistant-extension)>span:last-child>*:first-child{order:10}
+      [data-clock="end"]:has(.chatplus-assistant-extension)>span:last-child>*:last-child{order:12}
+      .chatplus-assistant-extension .chatplus-meta-model{order:11;padding-inline:6px}
       .chatplus-user-row{width:100%;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
       .chatplus-user-row [data-chatplus-content]{width:100%;display:flex;flex-direction:column;align-items:flex-end}
       .chatplus-user-row [data-chatplus-content]>*{align-self:flex-end}
@@ -131,11 +138,12 @@ window.__ModuleLoader__.load({
       React.useEffect(()=>{if(edit){editBaseIds.current=[...(inputState.attachmentIds||[])];setExtraIds([])}},[edit?.turn])
       const [extraIds,setExtraIds]=React.useState([])
       const editBaseIds=React.useRef([])
+      const [pasteBusy,setPasteBusy]=React.useState(false)
       if(!sel.active&&sel.items.length===0&&!edit)return null
       const s=selectFor(sessionId)
       const sendEdit=async()=>{const text=draft||'';if(!text.trim()||!edit)return;try{const original=edit.original||[];const liveExtras=extraIds.filter(id=>inputState.attachmentIds?.includes?.(id)&&!editBaseIds.current.includes(id));const keep=[...original.map((_,i)=>i),...liveExtras.map((_,i)=>original.length+i)];await api({op:'edit',sessionId,turn:edit.turn,text,keep});editFor(sessionId).set(null);setExtraIds([])}catch(e){setConfirm({title:'编辑失败',description:e.message,confirm:'关闭',error:true})}}
       const finish=()=>{if(projection?.last!==edit?.turn){setConfirm({title:'编辑历史问题',description:'编辑此轮会删除此轮之后的所有轮次，是否继续？',confirm:'确认并重生成',warning:true,onConfirm:()=>{setConfirm(null);sendEdit()}})}else sendEdit()}
-      const pasteFiles=e=>{const files=[...(e.clipboardData?.files||[])];if(!files.length)return;e.preventDefault();const scope=runtimeCtx?.sessions?.scope?.(sessionId);const keyboard=scope?.get?.('conversation')?.keyboard;if(!keyboard?.intakeFiles){setConfirm({title:'无法粘贴附件',description:'当前 DSH 输入框没有提供附件粘贴接口；文本编辑仍可继续。',confirm:'关闭',error:true});return}keyboard.intakeFiles(files);setTimeout(()=>setExtraIds((ids)=>[...new Set([...ids,...(inputState.attachmentIds||[]).filter(id=>!editBaseIds.current.includes(id))])]),50)}
+      const pasteFiles=async e=>{const files=[...(e.clipboardData?.files||[])];if(!files.length)return;e.preventDefault();const scope=runtimeCtx?.sessions?.scope?.(sessionId);const conversation=scope?.get?.('conversation');if(!conversation?.createDrafts){setConfirm({title:'无法粘贴附件',description:'当前 DSH 输入框附件服务不可用；问题文字仍可编辑。',confirm:'关闭',error:true});return}setPasteBusy(true);try{const drafts=conversation.createDrafts(sessionId,files,true);const accepted=inputActions?.addAttachments?.(drafts.map(d=>d.id));if(accepted===false){conversation.releaseDraftAttachments?.(drafts);throw new Error('当前输入框正在提交，附件未能加入草稿。')}setExtraIds(ids=>[...new Set([...ids,...drafts.map(d=>d.id)])])}catch(error){setConfirm({title:'附件粘贴失败',description:error.message||String(error),confirm:'关闭',error:true})}finally{setPasteBusy(false)}}
       return h('div',{className:'chatplus-dock'},edit&&h(React.Fragment,null,h('span',{className:'chatplus-edit-banner'},`正在编辑第 ${edit.turn} 轮（可粘贴图片或文件）`),h('button',{className:'primary',onClick:finish},'提交编辑'),h('button',{onClick:()=>{for(const id of extraIds)inputActions?.removeAttachment?.(id);setExtraIds([]);editFor(sessionId).set(null);inputActions?.setDraft?.('')}},'取消编辑'),h('span',{className:'chatplus-paste-capture',onPasteCapture:pasteFiles,tabIndex:0,'aria-label':'粘贴图片和文件'})),!edit&&h(React.Fragment,null,h('button',{onClick:()=>s.activate()},'多选'),h('span',null,`已选择 ${sel.items.length} 条`),h('button',{className:'chatplus-danger',disabled:sel.items.length===0,onClick:()=>{if(window.confirm('删除选中的消息？'))api({op:'delete',sessionId,items:sel.items}).then(()=>s.clear())}},'批量删除'),h('button',{onClick:()=>s.clear()},'取消')),confirm&&h(Confirm,{request:confirm,onClose:()=>setConfirm(null),onConfirm:confirm.onConfirm||(()=>setConfirm(null))})) }
     function Footer({wide}) {
       const [open, setOpen] = React.useState(false)
