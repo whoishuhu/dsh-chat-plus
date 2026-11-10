@@ -1,47 +1,68 @@
 # dsh-chat-plus: Chat plus
 
-`dsh-chat-plus` adds WorkBuddy-style in-session reply regeneration with version switching to DeepSeek Harness, plus message editing, rollback, soft deletion, and a session recycle bin.
+[中文](README.zh.md) · [Architecture](ARCHITECTURE.md) · [Latest release](https://github.com/whoishuhu/dsh-chat-plus/releases/latest)
+
+![dsh-chat-plus icon](icon.svg)
+
+`dsh-chat-plus` is a DeepSeek Harness session-operations plugin. It brings WorkBuddy-style in-session regeneration and reply-version switching to DSH, with message editing, rollback, soft deletion, and a session recycle bin.
+
+## Why it exists
+
+DSH sessions use an append-only log. The plugin uses the official surface-replacement contract to remove inactive content from the model context while retaining the raw history. Switching a version appends the selected historical surface nodes back to the active session, avoiding sidebar fork sessions and core-source changes.
 
 ## Features
 
-### Reply versions
+### In-session reply versions
 
-- Regenerate the latest turn without creating a new session.
-- Keep multiple replies in the same conversation and switch with `< 1/2 >` or the left/right arrow keys.
-- Show the model and generation time for the active version.
-- Continue the conversation from the selected version.
-- Warn when regeneration may execute tools again, without blocking the action.
+- Regenerate the latest reply without creating a new sidebar session.
+- Switch versions with `< 1/2 >` buttons or the left/right arrow keys.
+- Show the active model name and generation time.
+- Warn before regenerating a tool-using reply because tools may run again.
+- Continue from the selected version with only that version visible to the model.
 
-### Message actions
+### Questions, replies, and rollback
 
-- Edit, roll back, copy, or delete a user question from its action row.
-- Edit any turn; later turns are soft-deleted and original attachments can be retained.
-- Roll back from a node and put the original question back into the composer.
-- Delete one reply with its reasoning and tool calls, or delete a complete question/reply turn.
-- Select multiple messages and delete them in one operation.
+- Select user questions and assistant replies for batch deletion.
+- Delete a reply with its reasoning and tool calls while keeping the question.
+- Delete a question together with all reply versions in that turn.
+- Edit any historical question in the official composer; later turns require confirmation before removal.
+- Roll back from a node and restore the original question to the composer.
+- Restore image and ordinary file attachments through DSH's attachment service when possible.
 
 ### Session recycle bin
 
 - Add Delete session after Archive session in the session menu.
-- Stop active work before moving a session to the recycle bin.
-- Open the recycle bin from the bottom of the workspace sidebar.
+- Running sessions show a stop-and-delete confirmation.
+- Open the recycle bin from the workspace sidebar footer.
 - Restore, permanently delete one session, or empty the bin.
-- Cascade operations to child subagent sessions.
+- Cascade archive, restore, and permanent deletion to child subagent sessions.
+
+## Names
+
+- **Project**: `dsh-chat-plus`
+- **GitHub repository**: `whoishuhu/dsh-chat-plus`
+- **DSH plugin ID / bundle**: `dsh-chat-plus`
+- **Display name**: `Chat plus` / `对话增强`
+- **npm package**: not published to npm. The same npm name is already occupied by another project, so installation uses the GitHub repository and DSH plugin indexes.
+
+## Architecture
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the Host projection, operation route, Client slots, version switching, and deletion model.
 
 ## Important boundaries
 
-- Message deletion is soft deletion: the content leaves the model context and chat view, while the append-only raw log remains unchanged.
-- Switching versions appends the selected version back into the log, so the log can grow; the result remains readable after a cold restart.
-- Regeneration may execute tools again. External side effects are not automatically undone.
-- Permanent recycle-bin deletion is irreversible and removes session logs, projection cache entries, and associated child sessions.
-- The plugin owns the user-message bubble to provide its action row. DSH UI changes may require an adapter update.
+- Message deletion is soft deletion: the model context and chat view hide the content, while the append-only raw log remains unchanged.
+- Version switching appends the selected version back into the log, so logs can grow.
+- Regeneration may execute tools again; external side effects are not automatically undone.
+- Permanent recycle-bin deletion is irreversible and removes session logs, projection-cache records, and child sessions.
+- The plugin owns the user-message renderer to provide its action row; DSH UI changes may require an adapter update.
 
 ## Development
 
 ```powershell
-node --test test/model.test.js test/plan.test.js
 node --check index.js
 node --check client.js
+node --test test/model.test.js test/plan.test.js
 ```
 
-MIT licensed. This plugin is not affiliated with DeepSeek or DeepSeek Harness.
+MIT licensed.
