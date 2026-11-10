@@ -1,6 +1,6 @@
 {
   "name": "dsh-chat-plus",
-  "version": "0.2.3",
+  "version": "0.2.5",
   "description": "对话增强：同会话回复重生成、多版本切换、消息编辑删除、回退与会话回收站。",
   "type": "module",
   "private": false,
