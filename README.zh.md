@@ -1,6 +1,8 @@
 # dsh-chat-plus：对话增强
 
-[English](README.md) · [架构说明](ARCHITECTURE.md) · [发布页](https://github.com/whoishuhu/dsh-chat-plus/releases/latest)
+**语言：** 简体中文 · [English](README.md) · [日本語](README.ja.md) · [Español](README.es.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Русский](README.ru.md) · [Português](README.pt.md)
+
+**项目入口：** [功能架构](ARCHITECTURE.md) · [发布页](https://github.com/whoishuhu/dsh-chat-plus/releases/latest)
 
 ![dsh-chat-plus icon](icon.svg)
 
@@ -43,7 +45,7 @@ DSH 的会话日志是 append-only。插件利用 DSH 官方 surface replacement
 - **GitHub 仓库**：`whoishuhu/dsh-chat-plus`
 - **DSH 插件 ID / bundle 名**：`dsh-chat-plus`
 - **显示名**：`对话增强 / Chat plus`
-- **npm 包名**：目前没有发布到 npm；npm 上的同名名称已被其他项目占用，所以当前使用 GitHub 仓库和 DSH 本地/插件索引安装方式。
+- **npm 包名**：manifest 中的包名也是 `dsh-chat-plus`，但尚未发布到 npm；npm registry 的同名包已被其他项目占用，因此目前通过 GitHub 仓库、DSH 插件索引或本地 bundle 安装。
 
 ## 架构
 

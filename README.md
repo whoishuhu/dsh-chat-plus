@@ -1,6 +1,8 @@
 # dsh-chat-plus: Chat plus
 
-[中文](README.zh.md) · [Architecture](ARCHITECTURE.md) · [Latest release](https://github.com/whoishuhu/dsh-chat-plus/releases/latest)
+**Languages:** English · [简体中文](README.zh.md) · [日本語](README.ja.md) · [Español](README.es.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Русский](README.ru.md) · [Português](README.pt.md)
+
+**Project:** [Architecture](ARCHITECTURE.md) · [Latest release](https://github.com/whoishuhu/dsh-chat-plus/releases/latest)
 
 ![dsh-chat-plus icon](icon.svg)
 
@@ -43,7 +45,7 @@ DSH sessions use an append-only log. The plugin uses the official surface-replac
 - **GitHub repository**: `whoishuhu/dsh-chat-plus`
 - **DSH plugin ID / bundle**: `dsh-chat-plus`
 - **Display name**: `Chat plus` / `对话增强`
-- **npm package**: not published to npm. The same npm name is already occupied by another project, so installation uses the GitHub repository and DSH plugin indexes.
+- **npm package name**: the manifest name is also `dsh-chat-plus`, but it is not published. That npm registry name is occupied by another project, so install through the GitHub repository, DSH plugin indexes, or a local bundle.
 
 ## Architecture
 
