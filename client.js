@@ -234,8 +234,8 @@ function UserNode({ node, renderFactorySlot, loadImage, sessionId, useProjection
         ),
         confirm && h(Confirm, { request: confirm, onClose: () => setConfirm(null), onConfirm: confirm.onConfirm || (() => setConfirm(null)) })
       );
-    }    function SessionDeleteOverlay({useDeleteRequest}) {
-      const request = useDeleteRequest()
+    }    function SessionDeleteOverlay() {
+      const request = React.useSyncExternalStore(storeFor('session-delete').subscribe, storeFor('session-delete').getSnapshot)
       const [busy, setBusy] = React.useState(false)
       const [error, setError] = React.useState(null)
       const [running, setRunning] = React.useState(null)
