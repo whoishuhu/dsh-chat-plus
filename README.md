@@ -29,7 +29,7 @@ DSH sessions use an append-only log. The plugin uses the official surface-replac
 - Delete a question together with all reply versions in that turn.
 - Edit any historical question in the official composer; later turns require confirmation before removal.
 - Roll back from a node and restore the original question to the composer.
-- Restore image and ordinary file attachments through DSH's attachment service when possible.
+- Paste images/files into the inline editor; DSH validates/stores pasted images, and historical attachments can be retained.
 
 ### Session recycle bin
 

@@ -17,7 +17,8 @@ window.__ModuleLoader__.load({
     }
     const CSS = `
       .chatplus-actions{height:calc(28px + var(--dsh-content-font-delta,0px));display:flex;align-items:center;gap:8px}
-      .chatplus-assistant-controls{display:inline-flex;align-items:center;gap:5px;padding-right:8px;border-right:1px solid var(--dsw-alias-border-l1)}
+      .chatplus-version-group{display:inline-flex;align-items:center;gap:6px;padding:0 9px;border-right:1px solid var(--dsw-alias-border-l1);white-space:nowrap}
+      .chatplus-assistant-controls{display:inline-flex;align-items:center;gap:5px;padding-left:8px}
       .chatplus-model-slot{font-size:12px;color:var(--dsw-alias-label-secondary);padding-inline:6px;white-space:nowrap}
       [data-clock="end"] .chatplus-model-slot{font-size:12px;color:var(--dsw-alias-label-secondary);padding:0 6px;white-space:nowrap;order:11}
       .chatplus-user-row{width:100%;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
@@ -82,8 +83,7 @@ window.__ModuleLoader__.load({
     async function restoreDraft({text,attachments}, inputActions, sessionId, ctx) {
       inputActions?.setDraft?.(text || '')
       if (!inputActions?.addAttachments || !attachments?.length) return []
-      const scoped=ctx?.sessions?.scope?.(sessionId)
-      const conversation=scoped?.get?.('conversation')
+      const conversation=ctx?.get?.('uiConversation')
       if(!conversation?.createDrafts) throw new Error('当前 DSH 未提供会话附件草稿服务，文本已恢复；附件请从输入框重新粘贴。')
       const files=[]
       for (const ref of attachments) {
@@ -157,7 +157,7 @@ function UserNode({ node, renderFactorySlot, loadImage, sessionId, useProjection
       const selection = React.useSyncExternalStore(selectFor(sessionId).subscribe, selectFor(sessionId).getSnapshot);
       const [confirm, setConfirm] = React.useState(null);
       const [editing, setEditing] = React.useState(false);
-      const [text, setText] = React.useState('');
+      const editSnapshot = React.useSyncExternalStore(editFor(sessionId).subscribe, editFor(sessionId).getSnapshot);
       const [busy, setBusy] = React.useState(false);
       const parts = contentParts(data.content);
 
@@ -172,9 +172,7 @@ function UserNode({ node, renderFactorySlot, loadImage, sessionId, useProjection
       const startEdit = async () => {
         try {
           const original = parts.attachments.map(block => ({ type: block.type, attachment: block.attachment }));
-          const ids = await restoreDraft({ text: parts.text, attachments: original }, inputActions, sessionId, runtimeCtx);
-          editFor(sessionId).set({ turn, original, ids });
-          setText(parts.text);
+          editFor(sessionId).set({ turn, text: parts.text, original, keep: original.map((_,index)=>index), pasted: [] });
           setEditing(true);
         } catch (error) {
           setConfirm({ title: '编辑失败', description: error.message, error: true, confirm: '关闭' });
@@ -182,7 +180,7 @@ function UserNode({ node, renderFactorySlot, loadImage, sessionId, useProjection
       };
       const saveEdit = async () => {
         const current = editFor(sessionId).getSnapshot();
-        const editedText = current?.text ?? text;
+        const editedText = current?.text ?? parts.text;
         if (!editedText.trim()) return;
         const keep = current?.keep ?? parts.attachments.map((_, index) => index);
         const later = projection?.last !== turn;
@@ -223,15 +221,15 @@ function UserNode({ node, renderFactorySlot, loadImage, sessionId, useProjection
       return h(React.Fragment, null,
         h('div', { className: 'chatplus-user-row' },
           editing && h('div', { className: 'chatplus-inline-edit' },
-            h('textarea', { value: editFor(sessionId).getSnapshot()?.text ?? text, onChange: event => editFor(sessionId).set({ ...editFor(sessionId).getSnapshot(), text: event.target.value }), onPaste: event => { const files=[...(event.clipboardData?.files||[])]; if(!files.length)return; event.preventDefault(); const readerJobs=files.map(file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve({type:file.type.startsWith('image/')?'image':'file',name:file.name,mediaType:file.type||'application/octet-stream',data:String(reader.result).split(',')[1]||''});reader.onerror=()=>reject(reader.error||new Error('clipboard file read failed'));reader.readAsDataURL(file)})); Promise.all(readerJobs).then(pasted=>{const current=editFor(sessionId).getSnapshot()||{};const all=[...(current.pasted||[]),...pasted];const size=all.reduce((n,file)=>n+(file.data.length*3/4),0);if(size>18*1024*1024)throw new Error('粘贴附件总大小不能超过 18 MiB');editFor(sessionId).set({...current,pasted:all})}).catch(error=>setConfirm({title:'无法读取粘贴附件',description:error.message,error:true,confirm:'关闭'})); }, 'aria-label': '编辑历史问题' }),
+            h('textarea', { value: editSnapshot?.text ?? parts.text, onChange: event => editFor(sessionId).set({ ...editFor(sessionId).getSnapshot(), text: event.target.value }), onPaste: event => { const files=[...(event.clipboardData?.files||[])]; if(!files.length)return; event.preventDefault(); const readerJobs=files.map(file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve({type:file.type.startsWith('image/')?'image':'file',name:file.name,mediaType:file.type||'application/octet-stream',data:String(reader.result).split(',')[1]||''});reader.onerror=()=>reject(reader.error||new Error('clipboard file read failed'));reader.readAsDataURL(file)})); Promise.all(readerJobs).then(pasted=>{const current=editFor(sessionId).getSnapshot()||{};const all=[...(current.pasted||[]),...pasted];const size=all.reduce((n,file)=>n+(file.data.length*3/4),0);if(size>18*1024*1024)throw new Error('粘贴附件总大小不能超过 18 MiB');editFor(sessionId).set({...current,pasted:all})}).catch(error=>setConfirm({title:'无法读取粘贴附件',description:error.message,error:true,confirm:'关闭'})); }, 'aria-label': '编辑历史问题' }),
             h('div', { className: 'chatplus-inline-attachments' }, ...parts.attachments.map((block, index) => h('label', { key: index },
-              h('input', { type: 'checkbox', checked: (editFor(sessionId).getSnapshot()?.keep ?? parts.attachments.map((_,i)=>i)).includes(index), onChange: event => { const current=editFor(sessionId).getSnapshot()||{}; const keep=current.keep??parts.attachments.map((_,i)=>i); editFor(sessionId).set({...current,keep:event.target.checked?[...keep,index]:keep.filter(i=>i!==index)}); } }),
+              h('input', { type: 'checkbox', checked: (editSnapshot?.keep ?? parts.attachments.map((_,i)=>i)).includes(index), onChange: event => { const current=editFor(sessionId).getSnapshot()||{}; const base=current.keep??parts.attachments.map((_,i)=>i); const keep=event.target.checked?[...base,index]:base.filter(i=>i!==index); editFor(sessionId).set({...current,keep:[...new Set(keep)].sort((a,b)=>a-b)}); } }),
               block.type === 'image' ? '保留历史图片' : '保留历史文件'
-            )), ...(editFor(sessionId).getSnapshot()?.pasted||[]).map((file,index)=>h('span',{key:`paste-${index}`,className:'chatplus-attach'},file.type==='image'?'已粘贴图片':'已粘贴文件'))),
-            h('div', { className: 'chatplus-edit-hint' }, '可直接在此输入框粘贴图片或文件；历史附件可勾选保留。'),
-            h('div', { className: 'chatplus-inline-actions' }, h('button', { onClick: () => { setEditing(false); editFor(sessionId).set(null); inputActions?.setDraft?.('') } }, '取消'), h('button', { className: 'primary', onClick: saveEdit }, '保存并重新生成'))
+            )), ...(editSnapshot?.pasted||[]).map((file,index)=>h('span',{key:`paste-${index}`,className:'chatplus-attach'},file.type==='image'?'已粘贴图片':'已粘贴文件'))),
+            h('div', { className: 'chatplus-edit-hint' }, '附件选择与粘贴会作为新问题的输入内容。'),
+            h('div', { className: 'chatplus-inline-actions' }, h('button', { onClick: () => { setEditing(false); editFor(sessionId).set(null) } }, '取消'), h('button', { className: 'primary', onClick: saveEdit }, '保存并重新生成'))
           ),
-          h('div', { 'data-chatplus-content': true }, renderFactorySlot('conversation.chat.user.content', { content: prepared, loadImage, interactive: true })),
+          !editing && h('div', { 'data-chatplus-content': true }, renderFactorySlot('conversation.chat.user.content', { content: prepared, loadImage, interactive: true })),
           !editing && actions
         ),
         confirm && h(Confirm, { request: confirm, onClose: () => setConfirm(null), onConfirm: confirm.onConfirm || (() => setConfirm(null)) })
